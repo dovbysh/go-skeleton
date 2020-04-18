@@ -19,5 +19,7 @@ func NewApi(db *pg.DB) *Api {
 func (a *Api) InitRouter(router *gin.RouterGroup) {
 	a.router = router
 
-	a.router.Any("/health", a.handlerHealth)
+	a.router.GET("/health", a.handlerHealth)
+	a.router.POST("/user/register", a.handlerUserRegister)
+
 }

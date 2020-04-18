@@ -72,7 +72,7 @@ func TestMain(t *testing.M) {
 		go a.Run()
 
 		for {
-			r, _, _ := gorequest.New().Post("http://" + appAddr + "/api/health").End()
+			r, _, _ := gorequest.New().Get("http://" + appAddr + "/api/health").End()
 			if r == nil {
 				time.Sleep(time.Microsecond)
 				continue
@@ -118,4 +118,21 @@ func TestHealth(t *testing.T) {
 	assert.Empty(t, errs)
 	assert.NotEmpty(t, response)
 	assert.True(t, response.Time.UnixNano() >= now.UnixNano())
+}
+
+func TestRegisterUser(t *testing.T) {
+	req := schema.RegisterRequest{
+		Email:         "RegisterUserEmail",
+		PasswordPlain: "plainPassword",
+		Name:          "RegiserName",
+	}
+	var response schema.RegisterResponse
+	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/register", appAddr)).SendStruct(&req).EndStruct(&response)
+	assert.Equal(t, http.StatusOK, r.StatusCode)
+	assert.Empty(t, errs)
+	assert.NotEmpty(t, response)
+	assert.Equal(t, req.Email, response.User.Email)
+	assert.Equal(t, req.Name, response.User.Name)
+	assert.True(t, response.User.ID > 0)
+
 }
