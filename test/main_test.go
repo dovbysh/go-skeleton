@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"github.com/dovbysh/go-skeleton/pkg/app"
+	"github.com/dovbysh/go-skeleton/pkg/schema"
 	"github.com/dovbysh/tests_common"
 	"github.com/go-pg/pg/v9"
 	"github.com/parnurzeal/gorequest"
@@ -107,4 +108,14 @@ func TestSwagger(t *testing.T) {
 	r, _, errs := gorequest.New().Get("http://" + appAddr + "/swagger/").End()
 	assert.Equal(t, http.StatusOK, r.StatusCode)
 	assert.Empty(t, errs)
+}
+
+func TestHealth(t *testing.T) {
+	var response schema.HealthResponse
+	now := time.Now()
+	r, _, errs := gorequest.New().Get(fmt.Sprintf("http://%s/api/health", appAddr)).EndStruct(&response)
+	assert.Equal(t, http.StatusOK, r.StatusCode)
+	assert.Empty(t, errs)
+	assert.NotEmpty(t, response)
+	assert.True(t, response.Time.UnixNano() >= now.UnixNano())
 }

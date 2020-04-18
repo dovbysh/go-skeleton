@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"github.com/dovbysh/go-skeleton/pkg/api"
 	"log"
 	"net/http"
 
@@ -14,6 +15,7 @@ type App struct {
 	config Config
 	server *http.Server
 	db     *pg.DB
+	api    *api.Api
 }
 
 func NewApp(cfg Config) *App {
@@ -50,7 +52,8 @@ func NewApp(cfg Config) *App {
 	if cfg.SwaggerDir != "" {
 		router.Static("/swagger", cfg.SwaggerDir)
 	}
-
+	app.api = api.NewApi(app.db)
+	app.api.InitRouter(router.Group("/api"))
 	return app
 }
 
