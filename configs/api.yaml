@@ -1,0 +1,11 @@
+listen: :5588
+postgres:
+  addr: 'localhost:55432'
+  user: root
+  password: root
+  database: db
+  min_idle_conns: 10
+  pool_size: 50
+orm:
+  debug: true
+dev_env: true

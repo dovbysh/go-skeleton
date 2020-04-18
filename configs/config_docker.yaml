@@ -1,0 +1,11 @@
+listen: :80
+postgres:
+  addr: 'skdb:5432'
+  user: root
+  password: root
+  database: db
+  min_idle_conns: 10
+  pool_size: 50
+orm:
+  debug: true
+dev_env: true
