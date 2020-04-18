@@ -1,0 +1,33 @@
+openapi: 3.0.2
+info:
+  title: skeleton project
+  version: 0.9.5
+  contact:
+    name: Andrey Dovbyshko
+    email: dovbysh@gmail.com
+  license:
+    name: GNU
+paths:
+  /api/health:
+    get:
+      summary: check health
+      responses:
+        "200":
+          description: Response time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+components:
+  schemas:
+    Health:
+      title: "Health"
+      type: object
+      properties:
+        r:
+          type: string
+        owner:
+          type: string
+        time:
+          type: string
