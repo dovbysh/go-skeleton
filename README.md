@@ -2,4 +2,4 @@
 Golang skeleton project
 
 Creation of this project:
-https://www.youtube.com/watch?v=qYfSlk5it9k
+https://youtu.be/ErZLV7o99KE
