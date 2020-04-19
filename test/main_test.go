@@ -135,4 +135,10 @@ func TestRegisterUser(t *testing.T) {
 	assert.Equal(t, req.Name, response.User.Name)
 	assert.True(t, response.User.ID > 0)
 
+	// register user with same Email
+	var resp2 schema.RegisterResponse
+	r, _, errs = gorequest.New().Post(fmt.Sprintf("http://%s/api/user/register", appAddr)).SendStruct(&req).EndStruct(&resp2)
+	assert.Equal(t, http.StatusBadRequest, r.StatusCode)
+	assert.NotEmpty(t, errs)
+	assert.Empty(t, resp2)
 }
