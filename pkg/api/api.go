@@ -21,5 +21,6 @@ func (a *Api) InitRouter(router *gin.RouterGroup) {
 
 	a.router.GET("/health", a.handlerHealth)
 	a.router.POST("/user/register", a.handlerUserRegister)
+	a.router.POST("/user/login", a.handlerUserLogin)
 
 }

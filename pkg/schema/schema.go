@@ -19,3 +19,10 @@ type RegisterRequest struct {
 type RegisterResponse struct {
 	User *models.User `json:"user,omitempty"`
 }
+type LoginRequest struct {
+	Email         string `json:"email"`
+	PasswordPlain string `json:"password_plain"`
+}
+type LoginResponse struct {
+	Bearer string `json:"bearer"`
+}

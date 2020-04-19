@@ -121,8 +121,25 @@ func TestHealth(t *testing.T) {
 }
 
 func TestRegisterUser(t *testing.T) {
+	response := register(t, "RegisterUserEmail")
+	assert.True(t, response.User.ID > 0)
+
+	// register user with same Email
 	req := schema.RegisterRequest{
 		Email:         "RegisterUserEmail",
+		PasswordPlain: "plainPassword",
+		Name:          "RegiserName",
+	}
+	var resp2 schema.RegisterResponse
+	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/register", appAddr)).SendStruct(&req).EndStruct(&resp2)
+	assert.Equal(t, http.StatusBadRequest, r.StatusCode)
+	assert.NotEmpty(t, errs)
+	assert.Empty(t, resp2)
+}
+
+func register(t *testing.T, email string) schema.RegisterResponse {
+	req := schema.RegisterRequest{
+		Email:         email,
 		PasswordPlain: "plainPassword",
 		Name:          "RegiserName",
 	}
@@ -133,12 +150,29 @@ func TestRegisterUser(t *testing.T) {
 	assert.NotEmpty(t, response)
 	assert.Equal(t, req.Email, response.User.Email)
 	assert.Equal(t, req.Name, response.User.Name)
-	assert.True(t, response.User.ID > 0)
+	return response
+}
 
-	// register user with same Email
-	var resp2 schema.RegisterResponse
-	r, _, errs = gorequest.New().Post(fmt.Sprintf("http://%s/api/user/register", appAddr)).SendStruct(&req).EndStruct(&resp2)
-	assert.Equal(t, http.StatusBadRequest, r.StatusCode)
+func TestLogin(t *testing.T) {
+	register(t, "TestAuth")
+	req := schema.LoginRequest{
+		Email:         "TestAuth",
+		PasswordPlain: "plainPassword",
+	}
+	var response schema.LoginResponse
+	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req).EndStruct(&response)
+	assert.Equal(t, http.StatusOK, r.StatusCode)
+	assert.Empty(t, errs)
+	assert.NotEmpty(t, response)
+
+	// let`s login with unregistered user
+	req2 := schema.LoginRequest{
+		Email:         "TestLoginUnregistered",
+		PasswordPlain: "plainPassword",
+	}
+	var response2 schema.LoginResponse
+	r, _, errs = gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req2).EndStruct(&response2)
+	assert.Equal(t, http.StatusNotFound, r.StatusCode)
 	assert.NotEmpty(t, errs)
-	assert.Empty(t, resp2)
+	assert.Empty(t, response2)
 }
