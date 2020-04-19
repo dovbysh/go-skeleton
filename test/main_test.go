@@ -154,25 +154,51 @@ func register(t *testing.T, email string) schema.RegisterResponse {
 }
 
 func TestLogin(t *testing.T) {
-	register(t, "TestAuth")
+	response := auth(t, "TestAuth")
+	assert.NotEmpty(t, response)
+
+	req2 := schema.LoginRequest{
+		Email:         "TestLoginUnregistered",
+		PasswordPlain: "plainPassword",
+	}
+	var response2 schema.LoginResponse
+	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req2).EndStruct(&response2)
+	assert.Equal(t, http.StatusNotFound, r.StatusCode)
+	assert.NotEmpty(t, errs)
+	assert.Empty(t, response2)
+}
+
+func auth(t *testing.T, email string) schema.LoginResponse {
+	register(t, email)
 	req := schema.LoginRequest{
-		Email:         "TestAuth",
+		Email:         email,
 		PasswordPlain: "plainPassword",
 	}
 	var response schema.LoginResponse
 	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req).EndStruct(&response)
 	assert.Equal(t, http.StatusOK, r.StatusCode)
 	assert.Empty(t, errs)
-	assert.NotEmpty(t, response)
+	return response
+}
 
-	// let`s login with unregistered user
-	req2 := schema.LoginRequest{
-		Email:         "TestLoginUnregistered",
-		PasswordPlain: "plainPassword",
-	}
-	var response2 schema.LoginResponse
-	r, _, errs = gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req2).EndStruct(&response2)
-	assert.Equal(t, http.StatusNotFound, r.StatusCode)
-	assert.NotEmpty(t, errs)
-	assert.Empty(t, response2)
+func addAuth(req *gorequest.SuperAgent, auth schema.LoginResponse) *gorequest.SuperAgent {
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", auth.Bearer))
+	return req
+}
+
+func TestHelloUser(t *testing.T) {
+	// api should return hello and User for authorized user
+	auth := auth(t, "TestHelloUser")
+	assert.NotEmpty(t, auth)
+
+	var response schema.HelloResponse
+	r, _, errs := addAuth(gorequest.New().Get(fmt.Sprintf("http://%s/api/user/hello", appAddr)), auth).EndStruct(&response)
+	assert.Equal(t, http.StatusOK, r.StatusCode)
+	assert.Empty(t, errs)
+	assert.NotEmpty(t, response)
+	assert.Equal(t, "TestHelloUser", response.User.Email)
+
+	// unauthorized request to /api/user/hello should return unauthorized
+	r, _, _ = gorequest.New().Get(fmt.Sprintf("http://%s/api/user/hello", appAddr)).End()
+	assert.Equal(t, http.StatusUnauthorized, r.StatusCode)
 }

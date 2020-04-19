@@ -26,3 +26,8 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Bearer string `json:"bearer"`
 }
+
+type HelloResponse struct {
+	Now  time.Time   `json:"now"`
+	User models.User `json:"user"`
+}

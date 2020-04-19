@@ -2,11 +2,13 @@ package api
 
 import (
 	"fmt"
+	"github.com/dovbysh/go-skeleton/pkg/api/middleware"
 	"github.com/dovbysh/go-skeleton/pkg/models"
 	"github.com/dovbysh/go-skeleton/pkg/schema"
 	"github.com/gin-gonic/gin"
 	"github.com/go-pg/pg/v9"
 	"net/http"
+	"time"
 )
 
 func (a *Api) handlerUserRegister(c *gin.Context) {
@@ -47,12 +49,25 @@ func (a *Api) handlerUserLogin(c *gin.Context) {
 	}
 	reqUser := user
 	reqUser.SetPassword(req.PasswordPlain)
-	bearer:=user.GetAuthKey()
+	bearer := user.GetAuthKey()
 	if reqUser.GetAuthKey() != bearer {
 		c.AbortWithError(http.StatusNotFound, fmt.Errorf("bad password"))
 		return
 	}
 	c.JSON(http.StatusOK, schema.LoginResponse{
 		Bearer: bearer,
+	})
+}
+
+func (a *Api) handlerUserHello(c *gin.Context) {
+	u, err := middleware.GetUser(c)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, schema.HelloResponse{
+		Now:  time.Now(),
+		User: *u,
 	})
 }
