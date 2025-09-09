@@ -7,7 +7,6 @@ require (
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-pg/pg/v9 v9.2.1
-	github.com/parnurzeal/gorequest v0.2.16
 	github.com/rowdyroad/go-yaml-config v0.0.0-20230703111549-1d3e30e45e63
 	github.com/stretchr/testify v1.8.4
 )
@@ -49,6 +48,7 @@ require (
 	github.com/nats-io/stan.go v0.10.4 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
+	github.com/parnurzeal/gorequest v0.2.16 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

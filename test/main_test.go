@@ -1,6 +1,8 @@
 package test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -16,7 +19,6 @@ import (
 	"github.com/dovbysh/go-skeleton/pkg/schema"
 	"github.com/dovbysh/tests_common"
 	"github.com/go-pg/pg/v9"
-	"github.com/parnurzeal/gorequest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,6 +28,102 @@ var (
 	pgConfig *pg.Options
 	wd       string
 )
+
+// HTTPClient provides a simple HTTP client replacement for gorequest
+type HTTPClient struct {
+	client  *http.Client
+	headers map[string]string
+}
+
+// NewHTTPClient creates a new HTTP client
+func NewHTTPClient() *HTTPClient {
+	return &HTTPClient{
+		client:  &http.Client{Timeout: 30 * time.Second},
+		headers: make(map[string]string),
+	}
+}
+
+// AddHeader adds a header to the client
+func (c *HTTPClient) AddHeader(key, value string) *HTTPClient {
+	c.headers[key] = value
+	return c
+}
+
+// Get performs a GET request
+func (c *HTTPClient) Get(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
+	}
+	return c.client.Do(req)
+}
+
+// Post performs a POST request with JSON body
+func (c *HTTPClient) Post(url string, body interface{}) (*http.Response, error) {
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
+	}
+	
+	return c.client.Do(req)
+}
+
+// GetJSON performs a GET request and parses JSON response
+func (c *HTTPClient) GetJSON(url string, result interface{}) (*http.Response, error) {
+	resp, err := c.Get(url)
+	if err != nil {
+		return resp, err
+	}
+	defer resp.Body.Close()
+	
+	if result != nil {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return resp, err
+		}
+		err = json.Unmarshal(body, result)
+		if err != nil {
+			return resp, err
+		}
+	}
+	
+	return resp, nil
+}
+
+// PostJSON performs a POST request with JSON body and parses JSON response
+func (c *HTTPClient) PostJSON(url string, reqBody interface{}, result interface{}) (*http.Response, error) {
+	resp, err := c.Post(url, reqBody)
+	if err != nil {
+		return resp, err
+	}
+	defer resp.Body.Close()
+	
+	if result != nil {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return resp, err
+		}
+		err = json.Unmarshal(body, result)
+		if err != nil {
+			return resp, err
+		}
+	}
+	
+	return resp, nil
+}
 
 func TestM(t *testing.T) {
 	wd, _ = os.Getwd()
@@ -78,11 +176,12 @@ func TestM(t *testing.T) {
 	go a.Run()
 
 	for {
-		r, _, _ := gorequest.New().Get("http://" + appAddr + "/api/health").End()
-		if r == nil {
+		r, err := NewHTTPClient().Get("http://" + appAddr + "/api/health")
+		if r == nil || err != nil {
 			time.Sleep(time.Microsecond)
 			continue
 		}
+		r.Body.Close()
 		break
 
 	}
@@ -113,17 +212,20 @@ func getAppConfig(pgConfig pg.Options, appAddr string) app.Config {
 }
 
 func tSwagger(t *testing.T) {
-	r, _, errs := gorequest.New().Get("http://" + appAddr + "/swagger/").End()
+	r, err := NewHTTPClient().Get("http://" + appAddr + "/swagger/")
 	assert.Equal(t, http.StatusOK, r.StatusCode)
-	assert.Empty(t, errs)
+	assert.NoError(t, err)
+	if r != nil {
+		r.Body.Close()
+	}
 }
 
 func tHealth(t *testing.T) {
 	var response schema.HealthResponse
 	now := time.Now()
-	r, _, errs := gorequest.New().Get(fmt.Sprintf("http://%s/api/health", appAddr)).EndStruct(&response)
+	r, err := NewHTTPClient().GetJSON(fmt.Sprintf("http://%s/api/health", appAddr), &response)
 	assert.Equal(t, http.StatusOK, r.StatusCode)
-	assert.Empty(t, errs)
+	assert.NoError(t, err)
 	assert.NotEmpty(t, response)
 	assert.True(t, response.Time.UnixNano() >= now.UnixNano())
 }
@@ -139,9 +241,9 @@ func tRegisterUser(t *testing.T) {
 		Name:          "RegiserName",
 	}
 	var resp2 schema.RegisterResponse
-	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/register", appAddr)).SendStruct(&req).EndStruct(&resp2)
+	r, err := NewHTTPClient().PostJSON(fmt.Sprintf("http://%s/api/user/register", appAddr), &req, &resp2)
 	assert.Equal(t, http.StatusBadRequest, r.StatusCode)
-	assert.NotEmpty(t, errs)
+	assert.NoError(t, err)
 	assert.Empty(t, resp2)
 }
 
@@ -152,9 +254,9 @@ func register(t *testing.T, email string) schema.RegisterResponse {
 		Name:          "RegiserName",
 	}
 	var response schema.RegisterResponse
-	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/register", appAddr)).SendStruct(&req).EndStruct(&response)
+	r, err := NewHTTPClient().PostJSON(fmt.Sprintf("http://%s/api/user/register", appAddr), &req, &response)
 	assert.Equal(t, http.StatusOK, r.StatusCode)
-	assert.Empty(t, errs)
+	assert.NoError(t, err)
 	assert.NotEmpty(t, response)
 	assert.Equal(t, req.Email, response.User.Email)
 	assert.Equal(t, req.Name, response.User.Name)
@@ -170,9 +272,9 @@ func tLogin(t *testing.T) {
 		PasswordPlain: "plainPassword",
 	}
 	var response2 schema.LoginResponse
-	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req2).EndStruct(&response2)
+	r, err := NewHTTPClient().PostJSON(fmt.Sprintf("http://%s/api/user/login", appAddr), &req2, &response2)
 	assert.Equal(t, http.StatusNotFound, r.StatusCode)
-	assert.NotEmpty(t, errs)
+	assert.NoError(t, err) // HTTP 404 is not a client error
 	assert.Empty(t, response2)
 }
 
@@ -183,15 +285,10 @@ func auth(t *testing.T, email string) schema.LoginResponse {
 		PasswordPlain: "plainPassword",
 	}
 	var response schema.LoginResponse
-	r, _, errs := gorequest.New().Post(fmt.Sprintf("http://%s/api/user/login", appAddr)).SendStruct(&req).EndStruct(&response)
+	r, err := NewHTTPClient().PostJSON(fmt.Sprintf("http://%s/api/user/login", appAddr), &req, &response)
 	assert.Equal(t, http.StatusOK, r.StatusCode)
-	assert.Empty(t, errs)
+	assert.NoError(t, err)
 	return response
-}
-
-func addAuth(req *gorequest.SuperAgent, auth schema.LoginResponse) *gorequest.SuperAgent {
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", auth.Bearer))
-	return req
 }
 
 func tHelloUser(t *testing.T) {
@@ -200,13 +297,18 @@ func tHelloUser(t *testing.T) {
 	assert.NotEmpty(t, auth)
 
 	var response schema.HelloResponse
-	r, _, errs := addAuth(gorequest.New().Get(fmt.Sprintf("http://%s/api/user/hello", appAddr)), auth).EndStruct(&response)
+	client := NewHTTPClient().AddHeader("Authorization", fmt.Sprintf("Bearer %s", auth.Bearer))
+	r, err := client.GetJSON(fmt.Sprintf("http://%s/api/user/hello", appAddr), &response)
 	assert.Equal(t, http.StatusOK, r.StatusCode)
-	assert.Empty(t, errs)
+	assert.NoError(t, err)
 	assert.NotEmpty(t, response)
 	assert.Equal(t, "TestHelloUser", response.User.Email)
 
 	// unauthorized request to /api/user/hello should return unauthorized
-	r, _, _ = gorequest.New().Get(fmt.Sprintf("http://%s/api/user/hello", appAddr)).End()
+	r, err = NewHTTPClient().Get(fmt.Sprintf("http://%s/api/user/hello", appAddr))
 	assert.Equal(t, http.StatusUnauthorized, r.StatusCode)
+	assert.NoError(t, err)
+	if r != nil {
+		r.Body.Close()
+	}
 }
